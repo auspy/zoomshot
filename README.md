@@ -1,4 +1,8 @@
-# ZoomShot
+<p align="center">
+  <img src="assets/icon.png" alt="ZoomShot" width="128" height="128">
+</p>
+
+<h1 align="center">ZoomShot</h1>
 
 A tiny macOS screenshot utility that pops a magnifier loupe under the cursor when you start an area selection — so you can pinpoint the exact pixel to drag from. Press **⌘⇧5**, see an 8× live magnifier follow your cursor, drag a region, release. The cropped PNG lands on the clipboard and a thumbnail floats up in the bottom-right.
 
