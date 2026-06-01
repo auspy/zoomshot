@@ -8,7 +8,7 @@ let package = Package(
         .executableTarget(
             name: "ZoomShot",
             path: "Sources/ZoomShot",
-            exclude: ["Resources/Info.plist", "Resources/ZoomShot.entitlements"],
+            exclude: ["Resources/Info.plist", "Resources/ZoomShot.entitlements", "Resources/AppIcon.icns"],
             linkerSettings: [
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate",

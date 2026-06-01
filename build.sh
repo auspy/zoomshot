@@ -28,6 +28,7 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 cp "$BIN_PATH" "$APP_BUNDLE/Contents/MacOS/$BIN_NAME"
 cp Sources/ZoomShot/Resources/Info.plist "$APP_BUNDLE/Contents/Info.plist"
+cp Sources/ZoomShot/Resources/AppIcon.icns "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 
 echo "==> Signing with: $SIGN_IDENTITY"
 codesign --force --sign "$SIGN_IDENTITY" \
