@@ -21,6 +21,15 @@ final class OverlayView: NSView {
     private var currentMouse: CGPoint = .zero
     private var selectionRect: CGRect = .zero
 
+    // Loupe updates run on a display-link tick rather than on every raw
+    // mouseMoved/mouseDragged event. Mouse events arrive at 125–250 Hz; the
+    // loupe samples + crops a full-resolution CGImage, so driving it from raw
+    // events saturates the main thread and beachballs the whole system (the
+    // overlay sits at screenSaver window level, so WindowServer can't
+    // composite anything beneath while main is stuck).
+    private var loupeDisplayLink: CADisplayLink?
+    private var lastTickedMouse: CGPoint = CGPoint(x: CGFloat.infinity, y: CGFloat.infinity)
+
     init(frame: NSRect, frozen: FrozenScreen) {
         self.frozen = frozen
         self.loupe = LoupeView(frozen: frozen)
@@ -62,13 +71,40 @@ final class OverlayView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        guard let window else { return }
+        guard let window else {
+            stopLoupeDisplayLink()
+            return
+        }
         let area = NSTrackingArea(rect: bounds,
                                   options: [.activeAlways, .mouseMoved, .mouseEnteredAndExited, .cursorUpdate, .inVisibleRect],
                                   owner: self,
                                   userInfo: nil)
         addTrackingArea(area)
         window.makeFirstResponder(self)
+        startLoupeDisplayLink()
+    }
+
+    deinit {
+        loupeDisplayLink?.invalidate()
+    }
+
+    private func startLoupeDisplayLink() {
+        guard loupeDisplayLink == nil else { return }
+        let link = displayLink(target: self, selector: #selector(tickLoupe(_:)))
+        link.add(to: .main, forMode: .common)
+        loupeDisplayLink = link
+    }
+
+    private func stopLoupeDisplayLink() {
+        loupeDisplayLink?.invalidate()
+        loupeDisplayLink = nil
+    }
+
+    @objc private func tickLoupe(_ link: CADisplayLink) {
+        if loupe.isHidden { return }
+        if currentMouse == lastTickedMouse { return }
+        lastTickedMouse = currentMouse
+        loupe.update(centerPoint: currentMouse, viewBounds: bounds)
     }
 
     // MARK: Mouse
@@ -78,9 +114,13 @@ final class OverlayView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
+        currentMouse = convert(event.locationInWindow, from: nil)
         loupe.isHidden = false
         NSCursor.crosshair.set()
+        // One-shot priming update so the loupe appears under the cursor
+        // immediately rather than on the next display-link tick.
         updateLoupe()
+        lastTickedMouse = currentMouse
     }
 
     override func mouseExited(with event: NSEvent) {
@@ -89,7 +129,6 @@ final class OverlayView: NSView {
 
     override func mouseMoved(with event: NSEvent) {
         currentMouse = convert(event.locationInWindow, from: nil)
-        updateLoupe()
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -98,7 +137,6 @@ final class OverlayView: NSView {
         currentMouse = p
         selectionRect = CGRect(origin: p, size: .zero)
         refreshDim()
-        updateLoupe()
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -111,7 +149,6 @@ final class OverlayView: NSView {
             height: abs(currentMouse.y - origin.y)
         )
         refreshDim()
-        updateLoupe()
     }
 
     override func mouseUp(with event: NSEvent) {

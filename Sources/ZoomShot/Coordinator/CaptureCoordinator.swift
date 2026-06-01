@@ -45,41 +45,51 @@ final class CaptureCoordinator {
     }
 
     private func handleCapturedImage(_ image: CGImage) {
-        guard let pngData = Self.pngData(from: image) else { return }
-        _ = PasteboardWriter.writePNG(image)
-
+        // PNG-encode a full-resolution Retina CGImage and the two synchronous
+        // Data.write calls below add up to hundreds of milliseconds on the
+        // main thread — visible as a beachball at capture commit. Run the
+        // encode + disk I/O on a background task and hop back to main only
+        // for the NSPasteboard write and the floater.
         let filename = Self.timestampFilename()
+        let saveDir = PreferencesStore.shared.saveDirectory
 
-        // Always write a temp copy so drag-and-drop has a real file URL.
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        do { try pngData.write(to: tempURL) } catch {
-            NSLog("ZoomShot: failed to write temp PNG: \(error)")
-        }
+        Task.detached(priority: .userInitiated) {
+            guard let pngData = Self.pngData(from: image) else { return }
 
-        // If a save directory is configured, persist a second copy there.
-        var persistedURL: URL? = nil
-        if let dir = PreferencesStore.shared.saveDirectory {
-            let target = dir.appendingPathComponent(filename)
-            do {
-                try FileManager.default.createDirectory(at: dir,
-                                                        withIntermediateDirectories: true)
-                try pngData.write(to: target)
-                persistedURL = target
-            } catch {
-                NSLog("ZoomShot: failed to write to save directory: \(error)")
+            // Always write a temp copy so drag-and-drop has a real file URL.
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+            do { try pngData.write(to: tempURL) } catch {
+                NSLog("ZoomShot: failed to write temp PNG: \(error)")
+            }
+
+            // If a save directory is configured, persist a second copy there.
+            var persistedURL: URL? = nil
+            if let dir = saveDir {
+                let target = dir.appendingPathComponent(filename)
+                do {
+                    try FileManager.default.createDirectory(at: dir,
+                                                            withIntermediateDirectories: true)
+                    try pngData.write(to: target)
+                    persistedURL = target
+                } catch {
+                    NSLog("ZoomShot: failed to write to save directory: \(error)")
+                }
+            }
+
+            let primaryURL = persistedURL ?? tempURL
+            await MainActor.run {
+                PasteboardWriter.writePNGData(pngData)
+                ThumbnailFloater.show(image: image, pngData: pngData, fileURL: primaryURL)
             }
         }
-
-        let primaryURL = persistedURL ?? tempURL
-        ThumbnailFloater.show(image: image, pngData: pngData, fileURL: primaryURL)
     }
 
-    private static func pngData(from image: CGImage) -> Data? {
+    nonisolated private static func pngData(from image: CGImage) -> Data? {
         let rep = NSBitmapImageRep(cgImage: image)
         return rep.representation(using: .png, properties: [:])
     }
 
-    private static func timestampFilename() -> String {
+    nonisolated private static func timestampFilename() -> String {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
         return "ZoomShot \(fmt.string(from: Date())).png"

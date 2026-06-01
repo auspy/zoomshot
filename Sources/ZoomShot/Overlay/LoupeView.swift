@@ -14,6 +14,11 @@ final class LoupeView: NSView {
     private let ringLayer = CAShapeLayer()
     private let crosshairLayer = CAShapeLayer()
 
+    // Cache the last source-pixel rect so we skip CGImage.cropping + the
+    // CATransaction commit when the cursor moves sub-pixel and the magnified
+    // tile is identical to the previous frame.
+    private var lastClamped: CGRect = .null
+
     init(frozen: FrozenScreen) {
         self.frozen = frozen
         self.zoom = PreferencesStore.shared.zoomLevel
@@ -90,11 +95,14 @@ final class LoupeView: NSView {
                                  width: frozen.image.width,
                                  height: frozen.image.height)
         let clamped = pixelRect.intersection(imageBounds)
-        if let cropped = frozen.image.cropping(to: clamped) {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            imageLayer.contents = cropped
-            CATransaction.commit()
+        if clamped != lastClamped {
+            lastClamped = clamped
+            if let cropped = frozen.image.cropping(to: clamped) {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                imageLayer.contents = cropped
+                CATransaction.commit()
+            }
         }
 
         // Position: prefer down-right of cursor, flip on edge collisions

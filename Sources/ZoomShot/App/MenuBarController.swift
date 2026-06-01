@@ -4,14 +4,17 @@ final class MenuBarController: NSObject {
     private let statusItem: NSStatusItem
     private let onCapture: () -> Void
     private let onPreferences: () -> Void
+    private let onCheckForUpdates: () -> Void
     private let onQuit: () -> Void
 
     init(onCapture: @escaping () -> Void,
          onPreferences: @escaping () -> Void,
+         onCheckForUpdates: @escaping () -> Void,
          onQuit: @escaping () -> Void) {
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.onCapture = onCapture
         self.onPreferences = onPreferences
+        self.onCheckForUpdates = onCheckForUpdates
         self.onQuit = onQuit
         super.init()
 
@@ -32,6 +35,11 @@ final class MenuBarController: NSObject {
                               modifiers: [.command],
                               action: #selector(preferencesClicked)))
         menu.addItem(.separator())
+        menu.addItem(makeItem(title: "Check for Updates…",
+                              key: "",
+                              modifiers: [],
+                              action: #selector(checkForUpdatesClicked)))
+        menu.addItem(.separator())
         menu.addItem(makeItem(title: "Quit ZoomShot",
                               key: "q",
                               modifiers: [.command],
@@ -51,5 +59,6 @@ final class MenuBarController: NSObject {
 
     @objc private func captureClicked() { onCapture() }
     @objc private func preferencesClicked() { onPreferences() }
+    @objc private func checkForUpdatesClicked() { onCheckForUpdates() }
     @objc private func quitClicked() { onQuit() }
 }

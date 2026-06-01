@@ -182,9 +182,12 @@ private final class FloaterHostView: NSView, NSDraggingSource {
 
     override func mouseUp(with event: NSEvent) {
         defer { mouseDownLocation = nil }
-        if !dragging {
-            NSWorkspace.shared.open(fileURL)
-        }
+        // Only treat this as a click on the card itself if we actually saw
+        // the matching mouseDown here. Without this guard, a click on a
+        // subview (e.g. the close button) that doesn't override mouseUp
+        // bubbles up the responder chain and re-fires the file-open here.
+        guard mouseDownLocation != nil, !dragging else { return }
+        NSWorkspace.shared.open(fileURL)
     }
 
     private func beginFileDrag(with event: NSEvent) {
@@ -469,6 +472,9 @@ private final class CircleIconButton: NSView {
     }
 
     override func mouseDown(with event: NSEvent) { onClick?() }
+    // Explicitly consume mouseUp so it doesn't bubble to the parent card,
+    // which would re-fire the file-open action on top of the close.
+    override func mouseUp(with event: NSEvent) {}
 
     override func resetCursorRects() {
         super.resetCursorRects()

@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.menuBar = MenuBarController(
             onCapture: { [weak coordinator] in coordinator?.beginCapture() },
             onPreferences: { [weak self] in self?.showPreferences() },
+            onCheckForUpdates: { Updater.checkForUpdates() },
             onQuit: { NSApp.terminate(nil) }
         )
 
