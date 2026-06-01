@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build ZoomShot.app from the SwiftPM executable.
+# Build ZoomShot.app from the SwiftPM executable, signed with Developer ID.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -8,6 +8,10 @@ CONFIG="${1:-release}"
 APP_NAME="ZoomShot"
 APP_BUNDLE="$APP_NAME.app"
 BIN_NAME="$APP_NAME"
+TEAM_ID="ZH7HN3N93K"
+# Disambiguated by SHA-1 because two Developer ID certs share the same common name.
+# Override with ZOOMSHOT_SIGN_IDENTITY env var if needed.
+SIGN_IDENTITY="${ZOOMSHOT_SIGN_IDENTITY:-93F25A6EA578FC113F4C6FAA42289F9E31361DE6}"
 
 echo "==> Building ($CONFIG)..."
 swift build -c "$CONFIG"
@@ -25,13 +29,17 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 cp "$BIN_PATH" "$APP_BUNDLE/Contents/MacOS/$BIN_NAME"
 cp Sources/ZoomShot/Resources/Info.plist "$APP_BUNDLE/Contents/Info.plist"
 
-echo "==> Ad-hoc signing (stable identifier)..."
-codesign --force --sign - \
+echo "==> Signing with: $SIGN_IDENTITY"
+codesign --force --sign "$SIGN_IDENTITY" \
     --identifier com.zoomshot.app \
     --options runtime \
+    --timestamp \
     --entitlements Sources/ZoomShot/Resources/ZoomShot.entitlements \
-    --timestamp=none \
     "$APP_BUNDLE"
+
+echo "==> Verifying signature..."
+codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
 
 echo "==> Done: $(pwd)/$APP_BUNDLE"
 echo "Launch with: open $APP_BUNDLE"
+echo "Notarize with: ./notarize.sh"
