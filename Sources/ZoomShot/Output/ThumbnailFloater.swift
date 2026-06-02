@@ -193,6 +193,9 @@ private final class FloaterHostView: NSView, NSDraggingSource {
     private func beginFileDrag(with event: NSEvent) {
         let pbItem = NSPasteboardItem()
         pbItem.setString(fileURL.absoluteString, forType: .fileURL)
+        // Plain-text drop targets (chat inputs, editors) read .string — give
+        // them the POSIX path so AI tools can pick the file up directly.
+        pbItem.setString(fileURL.path, forType: .string)
         let dragItem = NSDraggingItem(pasteboardWriter: pbItem)
 
         // Drag image: a scaled-down thumbnail of the capture
