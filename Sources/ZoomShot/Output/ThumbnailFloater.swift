@@ -65,13 +65,20 @@ final class ThumbnailFloater {
     }
 
     private func dismissNow() {
+        // Strong-capture the window so orderOut still runs if `self` is
+        // deallocated mid-animation (e.g. a new capture replaces
+        // `active`). Without this, the window lingers in WindowServer with
+        // alpha 0 and reappears on space switches because of
+        // .canJoinAllSpaces.
+        let win = window
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.18
-            window.animator().alphaValue = 0
+            win.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
-            guard let self else { return }
-            self.window.orderOut(nil)
-            if ThumbnailFloater.active === self { ThumbnailFloater.active = nil }
+            win.orderOut(nil)
+            if let self, ThumbnailFloater.active === self {
+                ThumbnailFloater.active = nil
+            }
         })
     }
 }
